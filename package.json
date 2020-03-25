@@ -15,6 +15,7 @@
     "react-router-dom": "^5.1.2",
     "react-scripts": "3.4.1"
   },
+  "homepage": "https://courator.us.to",
   "scripts": {
     "start": "react-app-rewired start",
     "build": "react-app-rewired build",
