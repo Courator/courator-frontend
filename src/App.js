@@ -3,7 +3,9 @@ import {Switch, Route} from 'react-router-dom'
 import {Link} from 'react-router-dom'
 import './App.css'
 import {withRouter} from 'react-router-dom';
+import { Input,Button} from 'antd';
 
+import { UserOutlined } from '@ant-design/icons';
 import {
   Layout,
   Menu,
@@ -17,18 +19,64 @@ const {Header, Content, Footer} = Layout;
 
 const cardShadow = {WebkitBoxShadow: '1px 1px 10px #eee', boxShadow: '1px 1px 10px #eee'};
 
+const { Search } = Input;
 class MainPageRenderer extends Component {
   render() {
     return <>
       <Link to='/'><h1>Courator</h1></Link>
       <Row gutter={[20, 20]} type='flex' justify='center' align='top'>
-        {['ABC', 'XYZ', 'JKL', 'OMN', 'TUV', 'DEF', 'GHI'].map(name => (
-          <Col sm={12} xs={24}>
-            <Card style={cardShadow} title={'Course ' + name}>
-              <Skeleton/>
-            </Card>
+        
+          <Col sm={24} xs={24}>
+            <div className="example-input">
+			    <h2>Add a Course</h2>
+			    <Input size="large" placeholder="Course Title" prefix={<UserOutlined />} />
+			    <Input size = "large" placeholder="Course Number" prefix={<UserOutlined />} />
+			    <Input size="large" placeholder="Instructor" prefix={<UserOutlined />} />
+			    <Button type="primary" htmlType="submit">
+          			Submit
+        		</Button>
+			</div>
+			<div className="example-input">
+			    <h2>Update a Course</h2>
+			    <Input size="large" placeholder="Course Title" prefix={<UserOutlined />} />
+			    <Input size = "large" placeholder="Course Number" prefix={<UserOutlined />} />
+			    <Input size="large" placeholder="Instructor" prefix={<UserOutlined />} />
+			    <Button type="primary" htmlType="submit">
+          			Submit
+        		</Button>
+			</div>
+			<div>
+			    <h2>Search a Course using Course Title</h2>
+			    <Search
+			      placeholder="Search a Course Title"
+			      onSearch={value => console.log(value)}
+			      style={{ width: 200 }}
+			    />
+			    <Card title="Course title" bordered={false} style={{ width: 300 }}>
+			      <p>Course Number</p>
+			      <p>Instructor</p>
+			    </Card>
+			    <h2>Search a Course using Course number</h2>
+			    <Search
+			      placeholder="Search a Course Number"
+			      onSearch={value => console.log(value)}
+			      style={{ width: 200 }}
+			    />
+			    <Card title="Course Number" bordered={false} style={{ width: 300 }}>
+			      <p>Course Title</p>
+			      <p>Instructor</p>
+			    </Card>
+			</div>
+			<div className="example-input">
+				<h2>Delete a course</h2>
+				<Input size="large" placeholder="Course Number" prefix={<UserOutlined />} />
+				<Button type="primary" htmlType="submit">
+          			Submit
+        		</Button>
+			</div>
+			
           </Col>
-        ))}
+        
       </Row>
     </>
   }
@@ -58,6 +106,7 @@ class App extends Component {
             </Switch>
           </div>
         </Content>
+	
         <div className='site-footer-padder'/>
         <Footer style={{textAlign: 'center'}}>
           Copyright © 2020 Courator
