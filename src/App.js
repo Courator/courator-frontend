@@ -32,9 +32,10 @@ const tailLayout = {
 };
 
 const cookies = new Cookies();
+const baseUrl = process.env.COURATOR_API_URL || '';
 
-async function fetchGet(url, args) {
-  const r = await fetch(url, {
+async function apiGet(route, args) {
+  const r = await fetch(baseUrl + route, {
     method: 'get',
     headers: {
       'Accept': 'application/json, text/plain, */*'
@@ -44,8 +45,8 @@ async function fetchGet(url, args) {
   return await r.json();
 }
 
-async function fetchPost(url, data, args) {
-  const r = await fetch(url, {
+async function apiPost(route, data, args) {
+  const r = await fetch(baseUrl + route, {
     method: 'post',
     headers: {
       'Accept': 'application/json, text/plain, */*',
@@ -57,8 +58,8 @@ async function fetchPost(url, data, args) {
   return r.json();
 }
 
-async function fetchDelete(url, args) {
-  const r = await fetch(url, {
+async function apiDelete(route, args) {
+  const r = await fetch(baseUrl + route, {
     method: 'delete',
     headers: {
       'Accept': 'application/json, text/plain, */*'
@@ -68,9 +69,9 @@ async function fetchDelete(url, args) {
   return r.json();
 }
 
-async function fetchUpdate(url, data, args) {
-  const r = await fetch(url, {
-    method: 'PATCH',
+async function apiPatch(route, data, args) {
+  const r = await fetch(baseUrl + route, {
+    method: 'patch',
     headers: {
       'Accept': 'application/json, text/plain, */*',
       'Content-Type': 'application/json'
@@ -85,7 +86,7 @@ class UniversityChooser extends Component {
   state = { universities: [] };
 
   componentDidMount() {
-    fetchGet('/university').then(d => {
+    apiGet('/university').then(d => {
       this.setState({ universities: d.map(v => ({ value: v.shortName, label: v.name, ...v })) });
     });
   }
@@ -107,7 +108,7 @@ class UniversityChooser extends Component {
 
 class _UniversityCreator extends Component {
   onFinish = university => {
-    fetchPost('/university', university).then(t => {
+    apiPost('/university', university).then(t => {
       this.props.history.push('/')
     })
   }
@@ -155,7 +156,7 @@ const UniversityCreator = withRouter(_UniversityCreator);
 
 class _UniversityUpdator extends Component {
   onFinish = university => {
-    fetchUpdate('/university/' + university.universityShortName, university, {}).then(t => {
+    apiPatch('/university/' + university.universityShortName, university, {}).then(t => {
       this.props.history.push('/')
     })
   }
@@ -211,7 +212,7 @@ const UniversityUpdator = withRouter(_UniversityUpdator);
 
 class _UniversityDeletor extends Component {
   onFinish = university => {
-    fetchDelete('/university/' + university.shortName).then(t => {
+    apiDelete('/university/' + university.shortName).then(t => {
       this.props.history.push('/')
     })
   }
@@ -243,7 +244,7 @@ const UniversityDeletor = withRouter(_UniversityDeletor);
 
 class _AccountCreator extends Component {
   onFinish = account => {
-    fetchPost('/account', account).then(account => {
+    apiPost('/account', account).then(account => {
       cookies.set('accountID', account.id.toString(), { path: '/', maxAge: 60 * 60 * 24 * 7 });
       this.props.history.push('/');
     })
@@ -314,7 +315,7 @@ class MainPageRenderer extends Component {
                 {['ABC', 'XYZ', 'JKL', 'OMN', 'TUV', 'DEF', 'GHI'].map(name => (
                   <Col sm={12} xs={24}>
                     <Card style={cardShadow} title={'Course ' + name}>
-                      <Skeleton/>
+                      <Skeleton />
                     </Card>
                   </Col>
                 ))}
