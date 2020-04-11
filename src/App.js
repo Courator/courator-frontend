@@ -32,7 +32,7 @@ const tailLayout = {
 };
 
 const cookies = new Cookies();
-const baseUrl = process.env.COURATOR_API_URL || '';
+const baseUrl = process.env.REACT_APP_COURATOR_API_URL || '';
 
 async function apiGet(route, args) {
   const r = await fetch(baseUrl + route, {
