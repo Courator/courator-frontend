@@ -4,6 +4,7 @@
 /node_modules
 /.pnp
 .pnp.js
+package-lock.json  # Yarn is used instead of npm
 
 # testing
 /coverage
