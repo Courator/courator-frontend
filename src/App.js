@@ -1,5 +1,5 @@
-import React, { Component } from 'react'
-import { Switch, Route } from 'react-router-dom'
+import React, { Component, useEffect, useState } from 'react'
+import { Switch, Route, useHistory } from 'react-router-dom'
 import { Link } from 'react-router-dom'
 import './App.css'
 import { withRouter } from 'react-router-dom';
@@ -36,74 +36,78 @@ const baseUrl = process.env.REACT_APP_COURATOR_API_URL || '';
 
 async function apiGet(route, args) {
   const r = await fetch(baseUrl + route, {
-    method: 'get',
+    method: 'GET',
     headers: {
       'Accept': 'application/json, text/plain, */*'
     },
-    ...fetch(args || {})
+    ...(args || {})
   });
   return await r.json();
 }
 
 async function apiPost(route, data, args) {
   const r = await fetch(baseUrl + route, {
-    method: 'post',
+    method: 'POST',
     headers: {
       'Accept': 'application/json, text/plain, */*',
       'Content-Type': 'application/json'
     },
     body: JSON.stringify(data),
-    ...fetch(args || {})
+    ...(args || {})
   });
   return r.json();
 }
 
 async function apiDelete(route, args) {
   const r = await fetch(baseUrl + route, {
-    method: 'delete',
+    method: 'DELETE',
     headers: {
       'Accept': 'application/json, text/plain, */*'
     },
-    ...fetch(args || {})
+    ...(args || {})
   });
   return r.json();
 }
 
 async function apiPatch(route, data, args) {
   const r = await fetch(baseUrl + route, {
-    method: 'patch',
+    method: 'PATCH',
     headers: {
       'Accept': 'application/json, text/plain, */*',
       'Content-Type': 'application/json'
     },
     body: JSON.stringify(data),
-    ...fetch(args || {})
+    ...(args || {})
   });
   return r.json();
 }
 
-class UniversityChooser extends Component {
-  state = { universities: [] };
+const univChooserProps = universities => ({
+  style: { width: 200 },
+  placeholder: "Enter a university",
+  filterOption: (inputValue, university) => {
+    let a = university.name.toUpperCase().indexOf(inputValue.toUpperCase()) !== -1;
+    let b = university.shortName.toUpperCase().indexOf(inputValue.toUpperCase()) !== -1;
+    return a || b;
+  },
+  options: universities
+});
 
-  componentDidMount() {
-    apiGet('/university').then(d => {
-      this.setState({ universities: d.map(v => ({ value: v.shortName, label: v.name, ...v })) });
-    });
-  }
+const univChooserRule = (universities) => {
+  return ({ getFieldValue }) => ({
+    validator(rule, value) {
+      console.log('VERIFY:', value)
+      const university = universities.find(x => x.shortName === value);
+      if (university !== undefined) {
+        return Promise.resolve();
+      }
+      return Promise.reject('Please select a university.');
+    },
+  });
+}
 
-  render() {
-    return <AutoComplete
-      style={{ width: 200 }}
-      options={this.state.universities}
-      placeholder="Enter a university"
-      filterOption={(inputValue, university) => {
-        let a = university.name.toUpperCase().indexOf(inputValue.toUpperCase()) !== -1;
-        let b = university.shortName.toUpperCase().indexOf(inputValue.toUpperCase()) !== -1;
-        return a || b;
-      }
-      }
-    />;
-  }
+function getUniversityOptions() {
+  return apiGet('/university').then(d => d.map(v => ({ value: v.shortName, label: v.name, ...v })));
 }
 
 class _UniversityCreator extends Component {
@@ -154,61 +158,75 @@ class _UniversityCreator extends Component {
 
 const UniversityCreator = withRouter(_UniversityCreator);
 
-class _UniversityUpdator extends Component {
-  onFinish = university => {
-    apiPatch('/university/' + university.universityShortName, university, {}).then(t => {
-      this.props.history.push('/')
-    })
-  }
-  render() {
-    return <Card style={cardShadow} title='Add a University'>
-      <Form
-        {...layout}
-        onFinish={this.onFinish}
+function UniversityUpdator() {
+  const [universities, setUniversities] = useState([]);
+  const history = useHistory();
+
+  useEffect(() => {
+    getUniversityOptions().then(u => setUniversities(u));
+  }, [])
+  const onFinish = university => {
+    const url = '/university/' + university.universityShortName;
+    delete university.universityShortName;
+    apiPatch(url, university, {}).then(t => {
+      history.push('/')
+    });
+  };
+  const [form] = Form.useForm();
+  return <Card style={cardShadow} title='Add a University'>
+    <Form
+      {...layout}
+      form={form}
+      onFinish={onFinish}
+    >
+      <Form.Item
+        label="University Identifier (Short Name)"
+        name="universityShortName"
+        rules={[{ required: true }, univChooserRule(universities)]}
       >
-        <Form.Item
-          label="University Identifier (Short Name)"
-          name="universityShortName"
-          rules={[{ required: true }]}
-        >
-          <Input />
-        </Form.Item>
+        <AutoComplete
+          {...univChooserProps(universities)}
+          onChange={shortName => {
+            const match = universities.find(u => u.shortName === shortName);
+            if (match !== undefined) {
+              form.setFieldsValue({ name: match.name, shortName: match.shortName, website: match.website || '' });
+            }
+          }}
+        />
+      </Form.Item>
 
-        <Form.Item
-          label="Full Name"
-          name="name"
-          rules={[{ required: false }]}
-        >
-          <Input />
-        </Form.Item>
+      <Form.Item
+        label="Full Name"
+        name="name"
+        rules={[{ required: false }]}
+      >
+        <Input />
+      </Form.Item>
 
-        <Form.Item
-          label="Short Name"
-          name="shortName"
-          rules={[{ required: false }]}
-        >
-          <Input />
-        </Form.Item>
+      <Form.Item
+        label="Short Name"
+        name="shortName"
+        rules={[{ required: false }]}
+      >
+        <Input />
+      </Form.Item>
 
-        <Form.Item
-          label="Website"
-          name="website"
-          rules={[{ required: false }]}
-        >
-          <Input />
-        </Form.Item>
+      <Form.Item
+        label="Website"
+        name="website"
+        rules={[{ required: false }]}
+      >
+        <Input />
+      </Form.Item>
 
-        <Form.Item {...tailLayout}>
-          <Button type="primary" htmlType="submit">
-            Update University
+      <Form.Item {...tailLayout}>
+        <Button type="primary" htmlType="submit">
+          Update University
           </Button>
-        </Form.Item>
-      </Form>
-    </Card>;
-  }
+      </Form.Item>
+    </Form>
+  </Card>;
 }
-
-const UniversityUpdator = withRouter(_UniversityUpdator);
 
 class _UniversityDeletor extends Component {
   onFinish = university => {
@@ -244,7 +262,13 @@ const UniversityDeletor = withRouter(_UniversityDeletor);
 
 class _AccountCreator extends Component {
   onFinish = account => {
-    apiPost('/account', account).then(account => {
+    console.log('DATA:', account);
+    const entry = Object.fromEntries(
+      Object.entries(account).filter(
+        ([key, _]) => !key.startsWith('_')
+      )
+    );
+    apiPost('/account', entry).then(account => {
       cookies.set('accountID', account.id.toString(), { path: '/', maxAge: 60 * 60 * 24 * 7 });
       this.props.history.push('/');
     })
@@ -266,7 +290,7 @@ class _AccountCreator extends Component {
         <Form.Item
           label="Email"
           name="email"
-          rules={[{ required: true }]}
+          rules={[{ type: 'email', required: true }]}
         >
           <Input />
         </Form.Item>
@@ -275,6 +299,30 @@ class _AccountCreator extends Component {
           label="Password"
           name="password"
           rules={[{ required: true, message: 'Please enter a short name (something like UIUC)' }]}
+        >
+          <Input.Password />
+        </Form.Item>
+
+        <Form.Item
+          name="_confirm"
+          label="Confirm Password"
+          dependencies={['password']}
+          hasFeedback
+          rules={[
+            {
+              required: true,
+              message: 'Please confirm your password!',
+            },
+            ({ getFieldValue }) => ({
+              validator(rule, value) {
+                if (!value || getFieldValue('password') === value) {
+                  return Promise.resolve();
+                }
+
+                return Promise.reject('The two passwords that you entered do not match!');
+              },
+            }),
+          ]}
         >
           <Input.Password />
         </Form.Item>
@@ -292,6 +340,10 @@ class _AccountCreator extends Component {
 const AccountCreator = withRouter(_AccountCreator);
 
 class MainPageRenderer extends Component {
+  state = { universities: [] };
+  componentDidMount() {
+    getUniversityOptions().then(universities => this.setState({ universities }));
+  }
   render() {
     return <>
       <Link to='/'><h1>Courator</h1></Link>
@@ -303,7 +355,7 @@ class MainPageRenderer extends Component {
             <Link to='/createAccount'><Button>Create an Account</Button></Link>
           </> : <>
               <h2>Choose a University</h2>
-              <UniversityChooser />
+              <AutoComplete {...univChooserProps(this.state.universities)} />
               <br />
               <br />
               <Link to='/addUniversity'><Button>Add a New University</Button></Link>&nbsp;&nbsp;&nbsp;&nbsp;
