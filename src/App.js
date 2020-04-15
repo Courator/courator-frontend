@@ -1,8 +1,7 @@
-import React, { Component, useEffect, useState } from 'react'
-import { Switch, Route, useHistory } from 'react-router-dom'
+import React, { useEffect, useState } from 'react'
+import { Switch, Route, useHistory, useLocation } from 'react-router-dom'
 import { Link } from 'react-router-dom'
 import './App.css'
-import { withRouter } from 'react-router-dom';
 import Cookies from "universal-cookie";
 
 import {
@@ -34,6 +33,29 @@ const tailLayout = {
 const cookies = new Cookies();
 const baseUrl = process.env.REACT_APP_COURATOR_API_URL || '';
 
+
+class ApiError extends Error {
+  constructor(message, status) {
+    super(message);
+    this.name = 'ApiError';
+    this.message = message + ' (' + status.toString() + ')';
+    this.status = status;
+  }
+}
+
+async function apiResolve(r) {
+  if (!r.ok) {
+    let e;
+    try {
+      e = new ApiError((await r.json()).message, r.status)
+    } catch(_) {
+      e = new ApiError(await r.text(), r.status);
+    }
+    throw e;
+  }
+  return await r.json();
+}
+
 async function apiGet(route, args) {
   const r = await fetch(baseUrl + route, {
     method: 'GET',
@@ -42,7 +64,7 @@ async function apiGet(route, args) {
     },
     ...(args || {})
   });
-  return await r.json();
+  return await apiResolve(r);
 }
 
 async function apiPost(route, data, args) {
@@ -55,7 +77,7 @@ async function apiPost(route, data, args) {
     body: JSON.stringify(data),
     ...(args || {})
   });
-  return r.json();
+  return await apiResolve(r);
 }
 
 async function apiDelete(route, args) {
@@ -66,7 +88,7 @@ async function apiDelete(route, args) {
     },
     ...(args || {})
   });
-  return r.json();
+  return apiResolve(r);
 }
 
 async function apiPatch(route, data, args) {
@@ -79,7 +101,7 @@ async function apiPatch(route, data, args) {
     body: JSON.stringify(data),
     ...(args || {})
   });
-  return r.json();
+  return await apiResolve(r);
 }
 
 const univChooserProps = universities => ({
@@ -96,7 +118,6 @@ const univChooserProps = universities => ({
 const univChooserRule = (universities) => {
   return ({ getFieldValue }) => ({
     validator(rule, value) {
-      console.log('VERIFY:', value)
       const university = universities.find(x => x.shortName === value);
       if (university !== undefined) {
         return Promise.resolve();
@@ -110,53 +131,50 @@ function getUniversityOptions() {
   return apiGet('/university').then(d => d.map(v => ({ value: v.shortName, label: v.name, ...v })));
 }
 
-class _UniversityCreator extends Component {
-  onFinish = university => {
+function UniversityCreator() {
+  const history = useHistory();
+  function onFinish(university) {
     apiPost('/university', university).then(t => {
-      this.props.history.push('/')
+      history.push('/')
     })
   }
-  render() {
-    return <Card style={cardShadow} title='Add a University'>
-      <Form
-        {...layout}
-        onFinish={this.onFinish}
+  return <Card style={cardShadow} title='Add a University'>
+    <Form
+      {...layout}
+      onFinish={onFinish}
+    >
+      <Form.Item
+        label="Full Name"
+        name="name"
+        rules={[{ required: true }]}
       >
-        <Form.Item
-          label="Full Name"
-          name="name"
-          rules={[{ required: true }]}
-        >
-          <Input />
-        </Form.Item>
+        <Input />
+      </Form.Item>
 
-        <Form.Item
-          label="Short Name"
-          name="shortName"
-          rules={[{ required: true, message: 'Please enter a short name (something like UIUC)' }]}
-        >
-          <Input />
-        </Form.Item>
+      <Form.Item
+        label="Short Name"
+        name="shortName"
+        rules={[{ required: true, message: 'Please enter a short name (something like UIUC)' }]}
+      >
+        <Input />
+      </Form.Item>
 
-        <Form.Item
-          label="Website"
-          name="website"
-          rules={[{ required: false }]}
-        >
-          <Input />
-        </Form.Item>
+      <Form.Item
+        label="Website"
+        name="website"
+        rules={[{ required: false }]}
+      >
+        <Input />
+      </Form.Item>
 
-        <Form.Item {...tailLayout}>
-          <Button type="primary" htmlType="submit">
-            Add University
+      <Form.Item {...tailLayout}>
+        <Button type="primary" htmlType="submit">
+          Add University
           </Button>
-        </Form.Item>
-      </Form>
-    </Card>;
-  }
+      </Form.Item>
+    </Form>
+  </Card>;
 }
-
-const UniversityCreator = withRouter(_UniversityCreator);
 
 function UniversityUpdator() {
   const [universities, setUniversities] = useState([]);
@@ -228,41 +246,41 @@ function UniversityUpdator() {
   </Card>;
 }
 
-class _UniversityDeletor extends Component {
-  onFinish = university => {
+function UniversityDeletor() {
+  const history = useHistory();
+  const onFinish = university => {
     apiDelete('/university/' + university.shortName).then(t => {
-      this.props.history.push('/')
+      history.push('/');
     })
-  }
-  render() {
-    return <Card style={cardShadow} title='Add a University'>
-      <Form
-        {...layout}
-        onFinish={this.onFinish}
+  };
+  return <Card style={cardShadow} title='Add a University'>
+    <Form
+      {...layout}
+      onFinish={onFinish}
+    >
+      <Form.Item
+        label="University Identifier (Short Name)"
+        name="shortName"
+        rules={[{ required: true }]}
       >
-        <Form.Item
-          label="University Identifier (Short Name)"
-          name="shortName"
-          rules={[{ required: true }]}
-        >
-          <Input />
-        </Form.Item>
+        <Input />
+      </Form.Item>
 
-        <Form.Item {...tailLayout}>
-          <Button type="primary" htmlType="submit">
-            Delete University
-          </Button>
-        </Form.Item>
-      </Form>
-    </Card>;
-  }
+      <Form.Item {...tailLayout}>
+        <Button type="primary" htmlType="submit">
+          Delete University
+        </Button>
+      </Form.Item>
+    </Form>
+  </Card>;
 }
 
-const UniversityDeletor = withRouter(_UniversityDeletor);
-
-class _AccountCreator extends Component {
-  onFinish = account => {
-    console.log('DATA:', account);
+function AccountCreator() {
+  const history = useHistory();
+  const [error, setError] = useState('');
+  const [emailErrorState, setEmailErrorState] = useState('');
+  const [form] = Form.useForm();
+  function onFinish(account) {
     const entry = Object.fromEntries(
       Object.entries(account).filter(
         ([key, _]) => !key.startsWith('_')
@@ -270,151 +288,151 @@ class _AccountCreator extends Component {
     );
     apiPost('/account', entry).then(account => {
       cookies.set('accountID', account.id.toString(), { path: '/', maxAge: 60 * 60 * 24 * 7 });
-      this.props.history.push('/');
+      history.push('/');
+    }).catch(e => {
+      if (e.status === 409) {
+        setError({field: 'email', value: entry.email});
+        setEmailErrorState(true);
+      }
     })
-  }
-  render() {
-    return <Card style={cardShadow} title='Create an account'>
-      <Form
-        {...layout}
-        onFinish={this.onFinish}
+  };
+  return <Card style={cardShadow} title='Create an account'>
+    <Form
+      {...layout}
+      onFinish={onFinish}
+      form={form}
+    >
+      <Form.Item
+        label="Full Name"
+        name="name"
+        rules={[{ required: false }]}
       >
-        <Form.Item
-          label="Full Name"
-          name="name"
-          rules={[{ required: false }]}
-        >
-          <Input />
-        </Form.Item>
+        <Input />
+      </Form.Item>
 
-        <Form.Item
-          label="Email"
-          name="email"
-          rules={[{ type: 'email', required: true }]}
-        >
-          <Input />
-        </Form.Item>
+      <Form.Item
+        label="Email"
+        name="email"
+        validateStatus={emailErrorState ? 'error' : 'success'}
+        help={emailErrorState ? 'Email already taken.' : undefined}
+        rules={[{ type: 'email', required: true }]}
+      >
+        <Input onChange={e => {
+          setEmailErrorState(error.field === 'email' && error.value === e.target.value);
+        }}/>
+      </Form.Item>
 
-        <Form.Item
-          label="Password"
-          name="password"
-          rules={[{ required: true, message: 'Please enter a short name (something like UIUC)' }]}
-        >
-          <Input.Password />
-        </Form.Item>
+      <Form.Item
+        label="Password"
+        name="password"
+        rules={[{ required: true, message: 'Please enter a short name (something like UIUC)' }]}
+      >
+        <Input.Password />
+      </Form.Item>
 
-        <Form.Item
-          name="_confirm"
-          label="Confirm Password"
-          dependencies={['password']}
-          hasFeedback
-          rules={[
-            {
-              required: true,
-              message: 'Please confirm your password!',
+      <Form.Item
+        name="_confirm"
+        label="Confirm Password"
+        dependencies={['password']}
+        hasFeedback
+        rules={[
+          {
+            required: true,
+            message: 'Please confirm your password!',
+          },
+          ({ getFieldValue }) => ({
+            validator(rule, value) {
+              if (!value || getFieldValue('password') === value) {
+                return Promise.resolve();
+              }
+              return Promise.reject('The two passwords that you entered do not match!');
             },
-            ({ getFieldValue }) => ({
-              validator(rule, value) {
-                if (!value || getFieldValue('password') === value) {
-                  return Promise.resolve();
-                }
+          }),
+        ]}
+      >
+        <Input.Password />
+      </Form.Item>
 
-                return Promise.reject('The two passwords that you entered do not match!');
-              },
-            }),
-          ]}
-        >
-          <Input.Password />
-        </Form.Item>
-
-        <Form.Item {...tailLayout}>
-          <Button type="primary" htmlType="submit">
-            Create Account
+      <Form.Item {...tailLayout}>
+        <Button type="primary" htmlType="submit">
+          Create Account
           </Button>
-        </Form.Item>
-      </Form>
-    </Card>;
-  }
+      </Form.Item>
+    </Form>
+  </Card>;
 }
 
-const AccountCreator = withRouter(_AccountCreator);
+function MainPageRenderer() {
+  const [universities, setUniversities] = useState([]);
+  useEffect(() => {
+    getUniversityOptions().then(u => setUniversities(u));
+  }, []);
+  return <>
+    <Link to='/'><h1>Courator</h1></Link>
+    <Row gutter={[20, 20]} type='flex' justify='center' align='top'>
 
-class MainPageRenderer extends Component {
-  state = { universities: [] };
-  componentDidMount() {
-    getUniversityOptions().then(universities => this.setState({ universities }));
-  }
-  render() {
-    return <>
-      <Link to='/'><h1>Courator</h1></Link>
-      <Row gutter={[20, 20]} type='flex' justify='center' align='top'>
-
-        <Col sm={24} xs={24}>
-          {cookies.get('accountID') === undefined ? <>
-            <p>You don't have an account.</p>
-            <Link to='/createAccount'><Button>Create an Account</Button></Link>
-          </> : <>
-              <h2>Choose a University</h2>
-              <AutoComplete {...univChooserProps(this.state.universities)} />
-              <br />
-              <br />
-              <Link to='/addUniversity'><Button>Add a New University</Button></Link>&nbsp;&nbsp;&nbsp;&nbsp;
+      <Col sm={24} xs={24}>
+        {cookies.get('accountID') === undefined ? <>
+          <p>You don't have an account.</p>
+          <Link to='/createAccount'><Button>Create an Account</Button></Link>
+        </> : <>
+            <h2>Choose a University</h2>
+            <AutoComplete {...univChooserProps(universities)} />
+            <br />
+            <br />
+            <Link to='/addUniversity'><Button>Add a New University</Button></Link>&nbsp;&nbsp;&nbsp;&nbsp;
               <Link to='/deleteUniversity'><Button>Delete a University</Button></Link>&nbsp;&nbsp;&nbsp;&nbsp;
               <Link to='/updateUniversity'><Button>Update a University</Button></Link>
-              <br />
-              <br />
-              <Row gutter={[20, 20]} type='flex' justify='center' align='top'>
-                {['ABC', 'XYZ', 'JKL', 'OMN', 'TUV', 'DEF', 'GHI'].map(name => (
-                  <Col sm={12} xs={24}>
-                    <Card style={cardShadow} title={'Course ' + name}>
-                      <Skeleton />
-                    </Card>
-                  </Col>
-                ))}
-              </Row>
-            </>}
-        </Col>
-      </Row>
-    </>
-  }
+            <br />
+            <br />
+            <Row gutter={[20, 20]} type='flex' justify='center' align='top'>
+              {['ABC', 'XYZ', 'JKL', 'OMN', 'TUV', 'DEF', 'GHI'].map(name => (
+                <Col sm={12} xs={24}>
+                  <Card style={cardShadow} title={'Course ' + name}>
+                    <Skeleton />
+                  </Card>
+                </Col>
+              ))}
+            </Row>
+          </>}
+      </Col>
+    </Row>
+  </>;
 }
 
-class App extends Component {
-  render() {
-    return (
-      <Layout className="layout">
-        <Header>
-          <Menu
-            theme="dark"
-            mode="horizontal"
-            selectedKeys={[{ '/': 'home' }[this.props.location.pathname]]}
-            style={{ lineHeight: '64px' }}
-          >
-            <Menu.Item><Link to='/'><img src='logo192.png' style={{ height: 48 }} alt='logo' /></Link></Menu.Item>
-            <Menu.Item><Link to='/'>Courator</Link></Menu.Item>
-            <Menu.Item key="home"><a href="/#">Home</a></Menu.Item>
-          </Menu>
-        </Header>
-        <div className='site-header-padder' />
-        <Content className='site-content'>
-          <div style={{ background: '#fff', padding: 24, minHeight: 280, height: '100%' }}>
-            <Switch>
-              <Route exact path='/' component={() => <MainPageRenderer />} />
-              <Route exact path='/addUniversity' component={() => <UniversityCreator />} />
-              <Route exact path='/deleteUniversity' component={() => <UniversityDeletor />} />
-              <Route exact path='/updateUniversity' component={() => <UniversityUpdator />} />
-              <Route exact path='/createAccount' component={() => <AccountCreator />} />
-            </Switch>
-          </div>
-        </Content>
+function App() {
+  const location = useLocation();
+  return <Layout className="layout">
+    <Header>
+      <Menu
+        theme="dark"
+        mode="horizontal"
+        selectedKeys={[{ '/': 'home' }[location.pathname]]}
+        style={{ lineHeight: '64px' }}
+      >
+        <Menu.Item><Link to='/'><img src='logo192.png' style={{ height: 48 }} alt='logo' /></Link></Menu.Item>
+        <Menu.Item><Link to='/'>Courator</Link></Menu.Item>
+        <Menu.Item key="home"><a href="/#">Home</a></Menu.Item>
+      </Menu>
+    </Header>
+    <div className='site-header-padder' />
+    <Content className='site-content'>
+      <div style={{ background: '#fff', padding: 24, minHeight: 280, height: '100%' }}>
+        <Switch>
+          <Route exact path='/' component={() => <MainPageRenderer />} />
+          <Route exact path='/addUniversity' component={() => <UniversityCreator />} />
+          <Route exact path='/deleteUniversity' component={() => <UniversityDeletor />} />
+          <Route exact path='/updateUniversity' component={() => <UniversityUpdator />} />
+          <Route exact path='/createAccount' component={() => <AccountCreator />} />
+        </Switch>
+      </div>
+    </Content>
 
-        <div className='site-footer-padder' />
-        <Footer style={{ textAlign: 'center' }}>
-          Copyright © 2020 Courator
-        </Footer>
-      </Layout>
-    );
-  }
+    <div className='site-footer-padder' />
+    <Footer style={{ textAlign: 'center' }}>
+      Copyright © 2020 Courator
+    </Footer>
+  </Layout>;
 }
 
-export default withRouter(App);
+export default App;
