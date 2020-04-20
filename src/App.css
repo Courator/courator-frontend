@@ -1,22 +1,3 @@
-.App {
-  text-align: center;
-}
-
-* {
-  box-sizing: border-box;
-}
-
-*:before,
-*:after {
-  box-sizing: border-box;
-}
-
-html,
-.Site {
-  height: 100%;
-  position: relative;
-}
-
 .site-header-padder {
   height: calc((100vw - 80em) / 2);
   max-height: 4em;
@@ -25,20 +6,6 @@ html,
 .site-footer-padder {
   height: calc((80em - 100vw) / 2 + 4em);
   max-height: 4em;
-}
-
-.sound-wave {
-  width: 100%;
-}
-
-mark.red {
-  color:#ff0000;
-  background: none;
-}
-
-mark.green {
-  color:#00A000;
-  background: none;
 }
 
 .site-content {
@@ -50,8 +17,4 @@ mark.green {
   display: block;
   position: relative;
   padding-bottom: 69px; /* height of your footer */
-}
-.example-input > span {
-  width: 200px;
-  margin: 0 8px 8px 0;
 }
