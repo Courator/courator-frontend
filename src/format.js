@@ -6,3 +6,12 @@ export const layout = {
 export const tailLayout = {
   wrapperCol: { offset: 8, span: 16 },
 };
+
+export function formatCourseCode(code) {
+  const [, department, number] = code.match(/([A-Z]+)([0-9]+)/);
+  return `${department} ${number}`;
+}
+
+export function formatCourseName(code, title) {
+  return `${formatCourseCode(code)}: ${title}`;
+}

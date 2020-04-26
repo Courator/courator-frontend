@@ -3,6 +3,60 @@
   max-height: 4em;
 }
 
+.clearfix::after {
+  display: table;
+  clear: both;
+  content: '';
+}
+.clearfix::before {
+  display: table;
+  content: '';
+}
+
+.clearfix {
+  position: relative;
+	z-index: 10;
+	max-width: 100%;
+	background: #fff;
+	-webkit-box-shadow: 0 2px 8px #f0f1f2;
+	box-shadow: 0 2px 8px #f0f1f2;
+}
+
+#header {
+	position: relative;
+	z-index: 10;
+	max-width: 100%;
+	background: #fff;
+	-webkit-box-shadow: 0 2px 8px #00f1f2;
+	box-shadow: 0 2px 8px #00f1f2;
+}
+
+#login-form login-form {
+  max-width: 300px;
+}
+#login-form .login-form-forgot {
+  float: right;
+}
+#login-form .ant-col-rtl .login-form-forgot {
+  float: left;
+}
+#login-form .login-form-button {
+  width: 100%;
+}
+
+.App {
+  text-align: center;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+*:before,
+*:after {
+  box-sizing: border-box;
+}
+
 .site-footer-padder {
   height: calc((80em - 100vw) / 2 + 4em);
   max-height: 4em;

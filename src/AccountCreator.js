@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { useHistory } from 'react-router-dom';
 import { Input, Button, Card, Form } from 'antd';
-import { apiPost } from './api';
-import { cookies } from "./util";
+import { apiPost } from './apiBase';
 import { cardShadow, layout, tailLayout } from "./format";
+import { apiGetToken, saveToken } from './api';
 
 export function AccountCreator() {
   const history = useHistory();
@@ -13,8 +13,11 @@ export function AccountCreator() {
   function onFinish(account) {
     const entry = Object.fromEntries(Object.entries(account).filter(([key, _]) => !key.startsWith('_')));
     apiPost('/account', entry).then(account => {
-      cookies.set('accountID', account.id.toString(), { path: '/', maxAge: 60 * 60 * 24 * 7 });
-      history.push('/');
+      apiGetToken(entry.email, entry.password).then(token => {
+        saveToken(token, true);
+        history.push('/');
+        window.location.reload();
+      });
     }).catch(e => {
       if (e.status === 409) {
         setError({ field: 'email', value: entry.email });
