@@ -5,6 +5,7 @@ import { useHistory } from 'react-router-dom';
 import { apiPut, apiDelete, apiPost } from '../apiBase';
 
 import { EditOutlined } from '@ant-design/icons';
+import { isLoggedIn } from '../api';
 
 function CourseDisplay({ title, code, description, website, universityCode, onEdit }) {
   const history = useHistory();
@@ -12,9 +13,9 @@ function CourseDisplay({ title, code, description, website, universityCode, onEd
     style={cardShadow}
     title={<div style={{ display: 'flex', justifyContent: 'space-between', height: 40, lineHeight: '40px' }}>
       <Button type='dashed' size='large' onClick={() => history.push('/university/' + universityCode + '/course/' + code)}><p style={{ fontWeight: 500 }}>{formatCourseName(code, title)}</p></Button>
-      <Tooltip title="Edit">
+      {isLoggedIn() ? <Tooltip title="Edit">
         <Button type="dashed" shape="circle" icon={<EditOutlined />} onClick={onEdit} />
-      </Tooltip>
+      </Tooltip> : <div/> }
     </div>}
   >
     {description ?

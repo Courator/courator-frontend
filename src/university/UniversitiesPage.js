@@ -13,14 +13,7 @@ export function UniversitiesPage() {
   const updateUniversities = () => { getUniversityOptions().then(u => setUniversities(u)); };
   useEffect(updateUniversities, []);
   return <>
-    <PageHeader title='Universities' breadcrumb={{
-      routes: [
-        {
-          path: '/university',
-          breadcrumbName: 'Universities',
-        }
-      ]
-    }}>
+    <PageHeader title='Universities'>
       <Row gutter={[20, 20]} type='flex' justify='center' align='top'>
 
         <Col sm={24} xs={24}>
