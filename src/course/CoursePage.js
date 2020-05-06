@@ -1,8 +1,9 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Button, PageHeader, Tag, Modal, Rate, AutoComplete, Tooltip, Form, InputNumber, Input } from 'antd';
-import { apiGet } from '../apiBase';
-import { formatCourseName } from '../format';
+import { Button, PageHeader, Tag, Modal, Rate, AutoComplete, Tooltip, Form, InputNumber, Input, message, Card } from 'antd';
+import { apiGet, apiPost } from '../apiBase';
+import { formatCourseName, cardShadow } from '../format';
 import { xbr2x, xbr3x } from 'xbr-js';
+import { uuidv4, capitalize } from '../util';
 
 import { GlobalOutlined, CloseOutlined, PlusOutlined } from '@ant-design/icons';
 
@@ -73,8 +74,19 @@ const useResetFormOnCloseModal = ({ form, visible }) => {
   }, [visible, prevVisible, form]);
 };
 
-const ModalForm = ({ visible, onCancel }) => {
+const ModalForm = ({ visible, onCancel, initialName }) => {
+  console.log('Modal form:', initialName, visible);
   const [form] = Form.useForm();
+  const formItemLayout = {
+    labelCol: {
+      xs: { span: 24 },
+      sm: { span: 8 },
+    },
+    wrapperCol: {
+      xs: { span: 24 },
+      sm: { span: 16 },
+    },
+  };
   useResetFormOnCloseModal({
     form,
     visible,
@@ -82,6 +94,7 @@ const ModalForm = ({ visible, onCancel }) => {
 
   return (
     <Modal
+      destroyOnClose={true}
       title='Add rating attribute'
       visible={visible}
       maskClosable={false}
@@ -90,28 +103,22 @@ const ModalForm = ({ visible, onCancel }) => {
       width={400}
       style={{ textAlign: 'center', top: 184 }}
     >
-      <Form form={form} layout="vertical" name="userForm">
+      <Form form={form} layout="horizontal" name="newRatingAttrForm" {...formItemLayout} initialValues={{name: initialName}}>
         <Form.Item
           name="name"
-          label="User Name"
-          rules={[
-            {
-              required: true,
-            },
-          ]}
+          label="Name"
+          normalize={capitalize}
+          rules={[{ required: true }]}
         >
           <Input />
         </Form.Item>
         <Form.Item
-          name="age"
-          label="User Age"
-          rules={[
-            {
-              required: true,
-            },
-          ]}
+          name="description"
+          label="Description"
+          normalize={capitalize}
+          rules={[{ required: true }]}
         >
-          <InputNumber />
+          <Input />
         </Form.Item>
       </Form>
     </Modal>
@@ -123,6 +130,8 @@ export function CoursePage({ universityCode, courseCode }) {
   const [metadata, setMetadata] = useState({});
   const [rateVisible, setRateVisible] = useState(false);
   const [rateAddAttrVisible, setRateAddAttrVisible] = useState(false);
+  const [rateAddAttrName, setRateAddAttrName] = useState('');
+  const [descriptions, setDescriptions] = useState([]);
   const [selectedAttributes, setSelectedAttributes] = useState([
     { name: 'Difficulty', description: 'How hard you found the course', id: 1 },
     { name: 'Curriculum', description: 'How well the course was layed out', id: 2 },
@@ -144,6 +153,9 @@ export function CoursePage({ universityCode, courseCode }) {
         setMetadata(m => ({ ...m, iconUrl }));
       }).catch(() => { });
     })
+    apiGet(`/university/${universityCode}/course/${courseCode}/rating`, { auth: false }).then(ratings => {
+      setDescriptions(ratings);
+    });
   }, [courseCode, universityCode]);
   const extra = [];
   if (metadata.websiteUrl) {
@@ -158,23 +170,51 @@ export function CoursePage({ universityCode, courseCode }) {
       title={null}
       visible={rateVisible}
       maskClosable={false}
+      destroyOnClose={true}
       onOk={() => form.submit()}
       onCancel={() => setRateVisible(false)}
       style={{ textAlign: 'center' }}
     >
       <Form.Provider
         onFormFinish={(name, { values, forms }) => {
-          if (name === 'userForm') {
-            const { basicForm } = forms;
-            const users = basicForm.getFieldValue('users') || [];
-            basicForm.setFieldsValue({
-              users: [...users, values],
-            });
-            setRateVisible(false);
+          if (name === 'ratingForm') {
+            console.log('SUBMIT:', values, selectedAttributes);
+            let newRatingAttributes = [];
+            let ratings = [];
+            Object.keys(values).forEach(k => {
+              let v = values[k];
+              if (v !== undefined && v !== 0) {
+                let prefix = 'rating:';
+                if (k.startsWith(prefix)) {
+                  let ratingId = prefix.slice(prefix.length);
+                  let matches = selectedAttributes.filter(x => x.id === ratingId);
+                  if (matches.length > 0 && matches[0].generated) {
+                    const {name, description, id} = matches[0];
+                    newRatingAttributes.push({name, description, id});
+                  }
+                  ratings.push({id: ratingId, value: v});
+                }
+              }
+            })
+            let overallRating = values.overall;
+            let description = values.description;
+            let data = {
+              ratings, overallRating, description, newRatingAttributes
+            };
+            console.log('SUBMIT:', data);
+            apiPost(`/university/${universityCode}/course/${courseCode}/rating`, data).then(r => {
+              console.log('Submitted');
+              setRateVisible(false);
+              message.info('Submitted rating.');
+            })
+          } else if (name === 'newRatingAttrForm') {
+            console.log('New rating:', values);
+            setSelectedAttributes(attrs => [...attrs, { ...values, id: uuidv4(), generated: true }]);
+            setRateAddAttrVisible(false);
           }
         }}
       >
-        <Form form={form} name="basicForm" onFinish={x => { console.log('FORM A:', x); }}>
+        <Form form={form} name="ratingForm" onFinish={x => { console.log('FORM A:', x); }}>
           <h1>{`Rate ${formatCourseName(courseCode, course.title)}`}</h1>
           <div style={{ fontSize: 35, display: 'inline-block', paddingBottom: 10 }}>
             <Form.Item
@@ -191,46 +231,63 @@ export function CoursePage({ universityCode, courseCode }) {
           </div>
           <table style={{ textAlign: 'right', margin: '0 auto' }}>
             <tbody>
-              <Form.Item
-                label="User List"
-                shouldUpdate={(prevValues, curValues) => prevValues.attributes !== curValues.attributes}
-              >
-                {({ getFieldValue, setFieldsValue }) => {
-                  const attributes = getFieldValue('attributes') || [];
-                  return <>
-                    {attributes.map(ratingAttribute => {
-                      return <Tooltip placement='left' title={ratingAttribute.description} key={ratingAttribute.id} ><tr style={{ height: '35px' }}>
-                        <td style={{ paddingRight: '5px' }}>{ratingAttribute.name}:</td>
-                        <td style={{ height: '35px' }}><Rate style={{ height: '35px' }} /></td>
-                        <td style={{ display: 'inline-flex', paddingLeft: 10, justifyContent: 'center', alignItems: 'center', height: '35px' }}>
-                          <Button type='dashed' icon={<CloseOutlined />} onClick={() => {
-                            setFieldsValue({attributes: attributes.filter(x => x.id !== ratingAttribute.id)})
-                            setAvailableAttributes(attrs => [...attrs, ratingAttribute]);
-                          }} />
-                        </td></tr></Tooltip>
-                    })}
-                    <tr>
-                      <td colSpan={3}>
-                        <ModalForm visible={rateAddAttrVisible} onCancel={() => setRateAddAttrVisible(false)} />
-                        <Button type='dashed' block icon={<PlusOutlined />} onClick={() => setRateAddAttrVisible(true)} />
-                      </td>
-                    </tr>
-                  </>;
-                }}
-              </Form.Item>
+
+              {selectedAttributes.map(ratingAttribute => {
+                return <Tooltip placement='left' title={ratingAttribute.description} key={ratingAttribute.id} ><tr style={{ height: '35px' }}>
+                  <td style={{ paddingRight: '5px' }}>{ratingAttribute.name}:</td>
+                  <td style={{ height: '35px' }}>
+                    <Form.Item
+                      label={null}
+                      name={`rating:${ratingAttribute.id}`}
+                      shouldUpdate={(prevValues, curValues) => prevValues.attributes !== curValues.attributes}
+                      style={{ height: '35px', padding: 0, margin: 0 }}
+                    >
+                      <Rate style={{ height: '35px' }} />
+                    </Form.Item>
+                  </td>
+                  <td style={{ display: 'inline-flex', paddingLeft: 10, justifyContent: 'center', alignItems: 'center', height: '35px' }}>
+                    <Button type='dashed' icon={<CloseOutlined />} onClick={() => {
+                      form.setFieldsValue({ [`rating:${ratingAttribute.id}`]: undefined });
+                      setSelectedAttributes(attrs => attrs.filter(x => x.id !== ratingAttribute.id));
+                      setAvailableAttributes(attrs => [...attrs, ratingAttribute]);
+                    }} />
+                  </td></tr></Tooltip>
+              })}
             </tbody>
           </table><br />
           <div style={{ margin: '0 auto', width: 200 }}>
+            {rateAddAttrVisible ? <ModalForm visible={rateAddAttrVisible} onCancel={() => setRateAddAttrVisible(false)} initialName={rateAddAttrName}/> : <></>}
             <AutoComplete placeholder='Find rating attribute' style={{
               width: 200
-            }} value={searchVal} options={availableAttributes.map(x => ({ value: x.name, ...x }))} onSelect={(value, option) => {
+            }}
+            value={searchVal}
+            options={availableAttributes.map(x => ({ value: x.name, ...x }))}
+            onSelect={(value, option) => {
               setAvailableAttributes(attributes => attributes.filter(x => x.id !== option.id));
-              form.setFieldsValue({attributes: [...form.getFieldValue('attributes'), { name: option.value, id: option.id }]});
+              setSelectedAttributes(attrs => [...attrs, { name: option.value, id: option.id }]);
               setSearchVal('');
-            }} onChange={v => {
+            }} 
+            filterOption={(inputValue, option) =>
+              option.value.toUpperCase().indexOf(inputValue.toUpperCase()) !== -1
+            }
+            onChange={v => {
               setSearchVal(v);
-            }} />
+            }}>
+              <Input allowClear onPressEnter={e => {
+                e.preventDefault();
+                setRateAddAttrName(e.target.value);
+                setRateAddAttrVisible(true);
+                setSearchVal('');
+              }}/>
+              </AutoComplete>
           </div>
+          <Form.Item
+              name="description"
+              label={null}
+              style={{paddingTop: 25}}
+            >
+              <Input.TextArea placeholder='Description'/>
+            </Form.Item>
         </Form>
       </Form.Provider>
     </Modal>
@@ -258,6 +315,7 @@ export function CoursePage({ universityCode, courseCode }) {
         ]
       }}>
       {course.description}
+      <div style={{padding: 20}}>{descriptions.map(desc => <><Card style={{...cardShadow}}><p>{desc}</p></Card> <br/><br/></>)}</div>
     </PageHeader>
   </>;
 }
