@@ -11368,6 +11368,11 @@ ws@^6.1.2, ws@^6.2.1:
   dependencies:
     async-limiter "~1.0.0"
 
+xbr-js@^2.0.1:
+  version "2.0.1"
+  resolved "https://registry.yarnpkg.com/xbr-js/-/xbr-js-2.0.1.tgz#5fe25a38d5fab08d6bfa1da30be1ef23dfe0a5af"
+  integrity sha512-uKMrCZ4doruNbak2PzsMnZm20BvgHHnHpkzuCkQiHTotOysLNZA8TVDX7SYGTMNeTPYdTaco0lux2+zLTIm11w==
+
 xml-name-validator@^3.0.0:
   version "3.0.0"
   resolved "https://registry.yarnpkg.com/xml-name-validator/-/xml-name-validator-3.0.0.tgz#6ae73e06de4d8c6e47f9fb181f78d648ad457c6a"
