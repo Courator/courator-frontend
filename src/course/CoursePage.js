@@ -1,11 +1,12 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Button, PageHeader, Tag, Modal, Rate, AutoComplete, Tooltip, Form, InputNumber, Input, message, Card } from 'antd';
+import { Button, PageHeader, Tag, Modal, Rate, AutoComplete, Tooltip, Form, Input, message, Card, Row, Col, Badge } from 'antd';
 import { apiGet, apiPost } from '../apiBase';
 import { formatCourseName, cardShadow } from '../format';
 import { xbr2x, xbr3x } from 'xbr-js';
 import { uuidv4, capitalize } from '../util';
 
-import { GlobalOutlined, CloseOutlined, PlusOutlined } from '@ant-design/icons';
+import { GlobalOutlined, CloseOutlined } from '@ant-design/icons';
+import { isLoggedIn } from '../api';
 
 function convertUriToImageData(URI) {
   return new Promise(function (resolve, reject) {
@@ -75,7 +76,6 @@ const useResetFormOnCloseModal = ({ form, visible }) => {
 };
 
 const ModalForm = ({ visible, onCancel, initialName }) => {
-  console.log('Modal form:', initialName, visible);
   const [form] = Form.useForm();
   const formItemLayout = {
     labelCol: {
@@ -103,7 +103,7 @@ const ModalForm = ({ visible, onCancel, initialName }) => {
       width={400}
       style={{ textAlign: 'center', top: 184 }}
     >
-      <Form form={form} layout="horizontal" name="newRatingAttrForm" {...formItemLayout} initialValues={{name: initialName}}>
+      <Form form={form} layout="horizontal" name="newRatingAttrForm" {...formItemLayout} initialValues={{ name: capitalize(initialName) }}>
         <Form.Item
           name="name"
           label="Name"
@@ -131,20 +131,19 @@ export function CoursePage({ universityCode, courseCode }) {
   const [rateVisible, setRateVisible] = useState(false);
   const [rateAddAttrVisible, setRateAddAttrVisible] = useState(false);
   const [rateAddAttrName, setRateAddAttrName] = useState('');
-  const [descriptions, setDescriptions] = useState([]);
-  const [selectedAttributes, setSelectedAttributes] = useState([
-    { name: 'Difficulty', description: 'How hard you found the course', id: 1 },
-    { name: 'Curriculum', description: 'How well the course was layed out', id: 2 },
-    { name: 'Usefulness', description: 'How applicable the course is to the real world', id: 3 }
-  ]);
-  const [availableAttributes, setAvailableAttributes] = useState([
-    { name: 'Fun', description: 'How fun the class was', id: 15 },
-    { name: 'Tedious', description: 'How tedious the class was', id: 16 },
-    { name: 'Time Consuming', description: 'Amount of time required for class', id: 17 },
-    { name: 'Rewarding', description: 'How rewarding the class was', id: 18 },
-  ])
+  const [ratings, setRatings] = useState({ reviews: [], attributes: [] });
+  const [selectedAttributes, setSelectedAttributes] = useState([]);
+  const [availableAttributes, setAvailableAttributes] = useState([])
+  const [allAttributes, setAllAttributes] = useState([]);
   const [searchVal, setSearchVal] = useState('');
   const [form] = Form.useForm();
+  const rateAttrInfo = {};
+
+  console.log('SRC:', ratings.attributes)
+  allAttributes.forEach(x => {
+    rateAttrInfo[x.id] = x;
+  });
+
   useEffect(() => {
     apiGet(`/university/${universityCode}/course/${courseCode}`, { auth: false }).then(c => setCourse(c));
     apiGet(`/university/${universityCode}/course/${courseCode}/metadata`, { auth: false }).then(({ catalogUrl, websiteUrl, iconUrl }) => {
@@ -154,7 +153,13 @@ export function CoursePage({ universityCode, courseCode }) {
       }).catch(() => { });
     })
     apiGet(`/university/${universityCode}/course/${courseCode}/rating`, { auth: false }).then(ratings => {
-      setDescriptions(ratings);
+      setRatings(ratings);
+    });
+    apiGet(`/ratingAttribute`, { auth: false }).then(attributes => {
+      setAllAttributes(attributes);
+      const editableAttributes = attributes.filter(x => !x.name.startsWith('_'));
+      setSelectedAttributes(editableAttributes.splice(0, 4));
+      setAvailableAttributes(editableAttributes);
     });
   }, [courseCode, universityCode]);
   const extra = [];
@@ -165,7 +170,7 @@ export function CoursePage({ universityCode, courseCode }) {
     extra.push(<Button key="info"><a target='_blank' rel="noopener noreferrer" href={metadata.catalogUrl}>More Info</a></Button>)
   }
   extra.push(<div key="extra" style={{ display: 'inline-block' }}>
-    <Button key="rate" type="primary" onClick={() => setRateVisible(true)}>Rate</Button>
+    <Tooltip title='Log in to rate' trigger={isLoggedIn() ? [] : ['hover']}><Button key="rate" type="primary" disabled={!isLoggedIn()} onClick={() => setRateVisible(true)}>Rate</Button></Tooltip>
     <Modal
       title={null}
       visible={rateVisible}
@@ -178,7 +183,7 @@ export function CoursePage({ universityCode, courseCode }) {
       <Form.Provider
         onFormFinish={(name, { values, forms }) => {
           if (name === 'ratingForm') {
-            console.log('SUBMIT:', values, selectedAttributes);
+            console.log('BEFORE:', values, selectedAttributes);
             let newRatingAttributes = [];
             let ratings = [];
             Object.keys(values).forEach(k => {
@@ -186,18 +191,18 @@ export function CoursePage({ universityCode, courseCode }) {
               if (v !== undefined && v !== 0) {
                 let prefix = 'rating:';
                 if (k.startsWith(prefix)) {
-                  let ratingId = prefix.slice(prefix.length);
+                  let ratingId = k.slice(prefix.length);
                   let matches = selectedAttributes.filter(x => x.id === ratingId);
                   if (matches.length > 0 && matches[0].generated) {
-                    const {name, description, id} = matches[0];
-                    newRatingAttributes.push({name, description, id});
+                    const { name, description, id } = matches[0];
+                    newRatingAttributes.push({ name, description, id });
                   }
-                  ratings.push({id: ratingId, value: v});
+                  ratings.push({ id: ratingId, value: v });
                 }
               }
             })
             let overallRating = values.overall;
-            let description = values.description;
+            let description = values.description || '';
             let data = {
               ratings, overallRating, description, newRatingAttributes
             };
@@ -206,6 +211,13 @@ export function CoursePage({ universityCode, courseCode }) {
               console.log('Submitted');
               setRateVisible(false);
               message.info('Submitted rating.');
+            }).catch(r => {
+              if (r.status === 409) {
+                message.error('Course already rated.');
+                setRateVisible(false);
+              } else {
+                throw r;
+              }
             })
           } else if (name === 'newRatingAttrForm') {
             console.log('New rating:', values);
@@ -256,42 +268,48 @@ export function CoursePage({ universityCode, courseCode }) {
             </tbody>
           </table><br />
           <div style={{ margin: '0 auto', width: 200 }}>
-            {rateAddAttrVisible ? <ModalForm visible={rateAddAttrVisible} onCancel={() => setRateAddAttrVisible(false)} initialName={rateAddAttrName}/> : <></>}
+            {rateAddAttrVisible ? <ModalForm visible={rateAddAttrVisible} onCancel={() => setRateAddAttrVisible(false)} initialName={rateAddAttrName} /> : <></>}
             <AutoComplete placeholder='Find rating attribute' style={{
               width: 200
             }}
-            value={searchVal}
-            options={availableAttributes.map(x => ({ value: x.name, ...x }))}
-            onSelect={(value, option) => {
-              setAvailableAttributes(attributes => attributes.filter(x => x.id !== option.id));
-              setSelectedAttributes(attrs => [...attrs, { name: option.value, id: option.id }]);
-              setSearchVal('');
-            }} 
-            filterOption={(inputValue, option) =>
-              option.value.toUpperCase().indexOf(inputValue.toUpperCase()) !== -1
-            }
-            onChange={v => {
-              setSearchVal(v);
-            }}>
+              value={searchVal}
+              options={availableAttributes.map(x => ({ value: x.name, ...x }))}
+              onSelect={(value, option) => {
+                setAvailableAttributes(attributes => attributes.filter(x => x.id !== option.id));
+                setSelectedAttributes(attrs => [...attrs, { name: option.value, id: option.id }]);
+                setSearchVal('');
+              }}
+              filterOption={(inputValue, option) =>
+                option.value.toUpperCase().indexOf(inputValue.toUpperCase()) !== -1
+              }
+              onChange={v => {
+                setSearchVal(v);
+              }}>
               <Input allowClear onPressEnter={e => {
                 e.preventDefault();
                 setRateAddAttrName(e.target.value);
                 setRateAddAttrVisible(true);
                 setSearchVal('');
-              }}/>
-              </AutoComplete>
+              }} />
+            </AutoComplete>
           </div>
           <Form.Item
-              name="description"
-              label={null}
-              style={{paddingTop: 25}}
-            >
-              <Input.TextArea placeholder='Description'/>
-            </Form.Item>
+            name="description"
+            label={null}
+            style={{ paddingTop: 25 }}
+          >
+            <Input.TextArea placeholder='Description' />
+          </Form.Item>
         </Form>
       </Form.Provider>
     </Modal>
   </div>);
+  const overallID = (allAttributes.filter(x => x.name === '_Overall')[0] || {}).id;
+
+  const overall = ratings.attributes.filter(x => x.attributeID === overallID)[0];
+  const others = ratings.attributes.filter(x => x.attributeID !== overallID);
+  console.log('OTHERS:', others);
+
   return <>
     <PageHeader title={formatCourseName(courseCode, course.title)} className="site-page-header" tags={<Tag color="blue">Fall 2020</Tag>} extra={extra}
       avatar={{ shape: 'square', ...(metadata.iconUrl ? { src: metadata.iconUrl } : { icon: <GlobalOutlined /> }) }} breadcrumb={{
@@ -315,7 +333,58 @@ export function CoursePage({ universityCode, courseCode }) {
         ]
       }}>
       {course.description}
-      <div style={{padding: 20}}>{descriptions.map(desc => <><Card style={{...cardShadow}}><p>{desc}</p></Card> <br/><br/></>)}</div>
+
+      {overall ? <>
+        <Row justify="center" style={{ paddingBottom: 20, paddingTop: 20, textAlign: 'center', fontSize: 20 }}><Col>
+        <Badge style={{
+                  backgroundColor: '#fff',
+                  color: '#999',
+                  boxShadow: '0 0 0 1px #d9d9d9 inset'
+                }} count={overall.count}>Overall&nbsp;&nbsp;&nbsp;</Badge><br />
+          <Rate disabled value={5 * overall.average} style={{ fontSize: 25 }} />
+        </Col></Row>
+        <Row justify="center" style={{ paddingBottom: 20, paddingTop: 20 }}><Col lg={12} sm={24}>
+          <Row>{others.map(x => {
+            const attr = rateAttrInfo[x.attributeID];
+            if (attr === undefined) {
+              return <div key={x.attributeID}></div>;
+            }
+            return <Col key={x.attributeID} sm={24} lg={8} style={{ fontSize: 15, textAlign: 'center' }}>
+              <Tooltip title={attr.description} style={{ paddingRight: 10, fontSize: 16 }}>
+                <Badge style={{
+                  backgroundColor: '#fff',
+                  color: '#999',
+                  boxShadow: '0 0 0 1px #d9d9d9 inset'
+                }} count={x.count}>{attr.name}&nbsp;&nbsp;&nbsp;</Badge>
+              </Tooltip><br />
+              <Rate disabled value={5 * x.average} />
+            </Col>;
+          })}</Row>
+        </Col></Row>
+
+      </>
+        : <></>}
+
+
+
+      <div style={{ padding: 20 }}>
+        {ratings.reviews.map((review, i) => <div key={i}>
+          <Card  style={{ ...cardShadow }} title={review.account.name || review.account.email}>
+            <Row>
+              <Col sm={24} lg={12}><p>{review.description}</p></Col>
+              <Col sm={24} lg={12}><Row>{review.ratings.map(rating => {
+                console.log(rateAttrInfo, rating);
+                const attr = rateAttrInfo[rating.attributeID];
+                if (attr === undefined) {
+                  return <div key={rating.attributeID}></div>
+                }
+                return <Col key={rating.attributeID} sm={8}><Tooltip title={attr.description}>{attr.name.replace('_Overall', 'Overall')}</Tooltip><Rate disabled value={5 * rating.value} /></Col>;
+              })}</Row></Col>
+            </Row>
+          </Card>
+          <br />
+          <br />
+        </div>)}</div>
     </PageHeader>
   </>;
 }
