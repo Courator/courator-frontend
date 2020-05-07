@@ -9,18 +9,39 @@ import {
   Row,
   Col,
   message,
+  Progress,
 } from 'antd';
 
 import { AccountCreator } from './AccountCreator';
 import { UniversitiesPage } from './university/UniversitiesPage';
 import { CoursesPage } from './course/CoursesPage';
 import { cookies } from './util';
-import { apiFetch } from './apiBase';
+import { apiFetch, apiGet } from './apiBase';
 import { isLoggedIn } from './api';
 import { LoginModal } from './LoginModal';
 import { CoursePage } from './course/CoursePage';
 
 const { Header, Content, Footer } = Layout;
+
+
+const CorrelationPage = () => {
+  const [correlations, setCorrelations] = useState([]);
+  const [attributes, setAttributes] = useState([]);
+  useEffect(() => {
+    apiFetch('/ratingCorrelation').then(c => setCorrelations(c));
+    apiGet('/ratingAttribute', {auth: false}).then(v => setAttributes(v));
+  }, [])
+  const smallest = Math.min(...correlations.map(x => x.correlation));
+  const largest = Math.max(...correlations.map(x => x.correlation));
+  const range = largest - smallest;
+  return <Row justify='center'><Col sm={12} xs={24} lg={8}>
+    <h1>Estimated Rating Preferences</h1>
+    <p>This tool attempts to estimate the types of courses you like by calculating the correlation between various attributes and your overall rating of each course. The numbers shown below are the correlation coefficients between each of these attributes.</p>
+    {correlations.map(c => <>
+  {(attributes.filter(x => x.id === c.attrID)[0] || {}).name}: <Progress size='small' percent={10 + 80 * (c.correlation - smallest) / range} format={() => c.correlation.toFixed(2)}/>
+  <br/>
+  </>)}</Col></Row>
+};
 
 
 function App() {
@@ -109,6 +130,9 @@ function App() {
           }} />
           <Route exact path='/university/:university/course/:course' component={({ match }) => {
             return <CoursePage universityCode={match.params.university} courseCode={match.params.course} />;
+          }} />
+          <Route exact path='/account/correlation' component={() => {
+            return <CorrelationPage />;
           }} />
           <Route exact path='/register' component={() => <AccountCreator />} />
         </Switch>
