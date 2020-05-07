@@ -378,7 +378,7 @@ export function CoursePage({ universityCode, courseCode }) {
                 if (attr === undefined) {
                   return <div key={rating.attributeID}></div>
                 }
-                return <Col key={rating.attributeID} sm={8}><Tooltip title={attr.description}>{attr.name.replace('_Overall', 'Overall')}</Tooltip><Rate disabled value={5 * rating.value} /></Col>;
+                return <Col key={rating.attributeID} sm={8}><Tooltip title={attr.description}>{attr.name.replace('_Overall', 'Overall')}</Tooltip><br/><Rate disabled value={5 * rating.value} /></Col>;
               })}</Row></Col>
             </Row>
           </Card>
