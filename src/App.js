@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { Switch, Route, useLocation, Redirect } from 'react-router-dom'
+import { Switch, Route, useLocation, Redirect, useHistory } from 'react-router-dom'
 import { Link } from 'react-router-dom'
 import './App.css'
 
@@ -48,6 +48,7 @@ function App() {
   const location = useLocation();
   const [loginOpen, setLoginOpen] = useState(false);
   const [loggedIn, setLoggedIn] = useState(isLoggedIn());
+  const history = useHistory();
   function updateAccountToken() {
     if (isLoggedIn()) {
       apiFetch('/account').catch(e => {
@@ -91,9 +92,13 @@ function App() {
           >
             <Menu.Item><Link to='/'>Courator</Link></Menu.Item>
             <Menu.Item key="home"><a href="/#">Home</a></Menu.Item>
+            {loggedIn ? <Menu.Item
+                  key="profile" style={{ cursor: 'pointer' }}
+                  onClick={() => history.push('/profile')} onItemHover={() => { }}
+                >Profile</Menu.Item> : <></>}
             {!loggedIn ?
               <>
-                <Menu.Item
+               <Menu.Item
                   key="login" style={{ float: 'right', cursor: 'pointer' }}
                   onClick={() => setLoginOpen(true)} onItemHover={() => { }}
                 >Login</Menu.Item>
@@ -106,7 +111,7 @@ function App() {
                   setLoggedIn={setLoggedIn}
                 />
               </> :
-              <Menu.Item key="logout" style={{ float: 'right' }} onClick={() => {
+              <Menu.Item key="logout" style={{ float: 'right', cursor: 'pointer' }} onClick={() => {
                 cookies.remove('accountToken');
                 message.info('Successfully logged out');
                 setLoginOpen(false);
@@ -131,7 +136,7 @@ function App() {
           <Route exact path='/university/:university/course/:course' component={({ match }) => {
             return <CoursePage universityCode={match.params.university} courseCode={match.params.course} />;
           }} />
-          <Route exact path='/account/correlation' component={() => {
+          <Route exact path='/profile' component={() => {
             return <CorrelationPage />;
           }} />
           <Route exact path='/register' component={() => <AccountCreator />} />
